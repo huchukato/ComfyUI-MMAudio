@@ -22,7 +22,7 @@ from .mmaudio.model.sequence_config import (CONFIG_16K, CONFIG_44K, SequenceConf
 from .mmaudio.ext.bigvgan_v2.bigvgan import BigVGAN as BigVGANv2
 from .mmaudio.ext.synchformer import Synchformer
 from .mmaudio.ext.autoencoder import AutoEncoderModule
-from open_clip import CLIP
+import open_clip
 
 import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -101,8 +101,7 @@ class MMAudioModelLoader:
         return {
             "required": {
                 "mmaudio_model": (folder_paths.get_filename_list("mmaudio"), {"tooltip": "These models are loaded from the 'ComfyUI/models/mmaudio' -folder",}),
-            
-            "base_precision": (["fp16", "fp32", "bf16"], {"default": "fp16"}),
+                "base_precision": (["fp16", "fp32", "bf16"], {"default": "fp16"}),
             },
         }
 
@@ -279,11 +278,11 @@ class MMAudioFeatureUtilsLoader:
             
         with init_empty_weights():
             try:
-                clip_model = CLIP(**clip_config["model_cfg"]).eval()
+                clip_model = open_clip.create_model(**clip_config["model_cfg"]).eval()
             except:
                 # for some open-clip versions
                 clip_config["model_cfg"]["nonscalar_logit_scale"] = True
-                clip_model = CLIP(**clip_config["model_cfg"]).eval()
+                clip_model = open_clip.create_model(**clip_config["model_cfg"]).eval()
 
         clip_sd = load_torch_file(os.path.join(clip_model_path), device=offload_device)
         for name, param in clip_model.named_parameters():

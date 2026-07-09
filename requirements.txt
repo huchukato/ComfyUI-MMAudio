@@ -6,3 +6,4 @@ omegaconf>=2.3.0
 open_clip_torch>=2.29.0
 accelerate
 huggingface_hub
+torchvision

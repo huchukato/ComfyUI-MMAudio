@@ -25,8 +25,68 @@ from .mmaudio.ext.autoencoder import AutoEncoderModule
 import open_clip
 
 import logging
+import requests
+from tqdm import tqdm
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 log = logging.getLogger(__name__)
+
+# Model download URLs
+MODEL_DOWNLOADS = {
+    "mmaudio_large_44k_nsfw_gold_8.5k_final_fp16.safetensors": "https://huggingface.co/phazei/NSFW_MMaudio/resolve/main/mmaudio_large_44k_nsfw_gold_8.5k_final_fp16.safetensors",
+    "mmaudio_vae_44k_fp16.safetensors": "https://huggingface.co/Kijai/MMAudio_safetensors/resolve/5984623e6b436818c6ff287ef6eec93e3e05aa3f/mmaudio_vae_44k_fp16.safetensors",
+    "mmaudio_synchformer_fp16.safetensors": "https://huggingface.co/Kijai/MMAudio_safetensors/resolve/main/mmaudio_synchformer_fp16.safetensors",
+    "apple_DFN5B-CLIP-ViT-H-14-384_fp16.safetensors": "https://huggingface.co/Kijai/MMAudio_safetensors/resolve/main/apple_DFN5B-CLIP-ViT-H-14-384_fp16.safetensors",
+}
+
+def download_model(model_name: str, model_url: str, target_dir: str) -> str:
+    """Download a model from HuggingFace if it doesn't exist locally."""
+    model_path = os.path.join(target_dir, model_name)
+    
+    if os.path.exists(model_path):
+        log.info(f"Model {model_name} already exists at {model_path}")
+        return model_path
+    
+    log.info(f"Downloading {model_name} from HuggingFace...")
+    os.makedirs(target_dir, exist_ok=True)
+    
+    try:
+        response = requests.get(model_url, stream=True)
+        response.raise_for_status()
+        
+        total_size = int(response.headers.get('content-length', 0))
+        block_size = 8192
+        
+        with open(model_path, 'wb') as f, tqdm(
+            desc=model_name,
+            total=total_size,
+            unit='B',
+            unit_scale=True,
+            unit_divisor=1024,
+        ) as progress_bar:
+            for chunk in response.iter_content(chunk_size=block_size):
+                if chunk:
+                    f.write(chunk)
+                    progress_bar.update(len(chunk))
+        
+        log.info(f"Successfully downloaded {model_name} to {model_path}")
+        return model_path
+    except Exception as e:
+        log.error(f"Failed to download {model_name}: {e}")
+        if os.path.exists(model_path):
+            os.remove(model_path)
+        raise
+
+def ensure_models_downloaded():
+    """Check and download all required models from HuggingFace."""
+    target_dir = os.path.join(folder_paths.models_dir, "mmaudio")
+    for model_name, url in MODEL_DOWNLOADS.items():
+        try:
+            download_model(model_name, url, target_dir)
+        except Exception as e:
+            log.error(f"Auto-download failed for {model_name}: {e}")
+
+# Trigger auto-download on load
+ensure_models_downloaded()
 
 def process_video_tensor(video_tensor: torch.Tensor, duration_sec: float) -> tuple[torch.Tensor, torch.Tensor, float]:
     _CLIP_SIZE = 384
